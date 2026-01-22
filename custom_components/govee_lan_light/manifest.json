@@ -1,0 +1,12 @@
+{
+  "domain": "govee_lan_light",
+  "name": "Govee LAN Light",
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/govee-ha/govee-lan-light",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/govee-ha/govee-lan-light/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}
