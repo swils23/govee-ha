@@ -112,6 +112,9 @@ class GoveeLanApi:
     async def get_device_state(self) -> GoveeDeviceState | None:
         """Query the device for its current state.
 
+        The device responds on port 4002, not on the sending socket,
+        so we need to bind to 4002 before sending the query to 4003.
+
         Returns:
             GoveeDeviceState if successful, None otherwise.
         """
@@ -119,9 +122,8 @@ class GoveeLanApi:
 
         for attempt in range(MAX_RETRIES):
             async with self._lock:
-                response = await self._send_udp_command(
+                response = await self._send_status_query(
                     message,
-                    PORT_CONTROL,
                     TIMEOUT_STATUS * (attempt + 1),
                 )
 
@@ -148,6 +150,63 @@ class GoveeLanApi:
             )
 
         return None
+
+    async def _send_status_query(
+        self,
+        message: dict[str, Any],
+        timeout: float,
+    ) -> dict[str, Any] | None:
+        """Send a status query and wait for response on port 4002.
+
+        Govee devices respond to status queries on port 4002, not on the
+        sending socket. We bind to 4002, send query to 4003, then receive.
+
+        Args:
+            message: Status query message.
+            timeout: Timeout in seconds.
+
+        Returns:
+            Response dict or None if no response received.
+        """
+        loop = asyncio.get_event_loop()
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setblocking(False)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+        try:
+            # Bind to port 4002 to receive responses
+            sock.bind(("", PORT_LISTEN))
+        except OSError as err:
+            _LOGGER.debug("Failed to bind to port %d: %s", PORT_LISTEN, err)
+            sock.close()
+            return None
+
+        try:
+            data = json.dumps(message).encode("utf-8")
+            _LOGGER.debug("Sending status query to %s:%d: %s", self._host, PORT_CONTROL, message)
+            await loop.sock_sendto(sock, data, (self._host, PORT_CONTROL))
+
+            try:
+                response_data, addr = await asyncio.wait_for(
+                    loop.sock_recvfrom(sock, 4096),
+                    timeout=timeout,
+                )
+                # Only accept responses from our target device
+                if addr[0] == self._host:
+                    response = json.loads(response_data.decode("utf-8"))
+                    _LOGGER.debug("Received status from %s: %s", self._host, response)
+                    return response
+                else:
+                    _LOGGER.debug("Ignoring response from %s (expected %s)", addr[0], self._host)
+                    return None
+            except asyncio.TimeoutError:
+                _LOGGER.debug("Timeout waiting for status response from %s", self._host)
+                return None
+        except OSError as err:
+            _LOGGER.error("Socket error querying status from %s: %s", self._host, err)
+            return None
+        finally:
+            sock.close()
 
     async def turn_on(self) -> bool:
         """Turn on the device.

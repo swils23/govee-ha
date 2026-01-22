@@ -21,10 +21,7 @@ This integration supports Govee lights that implement the LAN UDP protocol, incl
 - Other H60xx series floor lamps
 - Various Govee LED strips and bulbs with LAN control
 
-**Note**: Newer H60xx floor lamps often omit the `ip` field in discovery responses and don't respond to status queries. This integration handles this by:
-- Falling back to the sender's IP address during discovery
-- Supporting manual IP entry (recommended for H60xx)
-- Tracking state locally when devices don't respond to status queries
+**Note**: Newer H60xx floor lamps often omit the `ip` field in discovery responses. This integration handles this by falling back to the sender's IP address, or you can simply enter the IP manually.
 
 ## Installation
 
@@ -95,10 +92,9 @@ This is expected for some devices (especially H60xx floor lamps). Use manual IP 
 
 ### State not updating
 
-- Some devices (like H607C) don't respond to status queries
-- For these devices, state is tracked locally based on commands sent
-- The UI will reflect what you've commanded, but won't sync if you use the Govee app
-- If you control the light via the Govee app, the HA state won't update automatically
+- The integration polls every 30 seconds by default
+- State updates immediately after sending commands
+- If you control the light via the Govee app, HA will sync on the next poll cycle
 
 ## Technical Details
 

@@ -134,7 +134,6 @@ class GoveeLanLight(CoordinatorEntity[GoveeLanLightCoordinator], LightEntity):
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the light on."""
         api = self.coordinator.api
-        govee_brightness = None
 
         # Handle brightness
         if ATTR_BRIGHTNESS in kwargs:
@@ -153,15 +152,11 @@ class GoveeLanLight(CoordinatorEntity[GoveeLanLightCoordinator], LightEntity):
         if ATTR_RGB_COLOR in kwargs:
             r, g, b = kwargs[ATTR_RGB_COLOR]
             await api.set_color(r, g, b)
-            # Update local state
-            self.coordinator.update_local_state(color=(r, g, b))
 
         # Handle color temperature
         elif ATTR_COLOR_TEMP_KELVIN in kwargs:
             kelvin = kwargs[ATTR_COLOR_TEMP_KELVIN]
             await api.set_color_temp(kelvin)
-            # Update local state
-            self.coordinator.update_local_state(color_temp_kelvin=kelvin)
 
         # Always turn on if no other attributes specified or in addition to them
         if not any(
@@ -172,21 +167,13 @@ class GoveeLanLight(CoordinatorEntity[GoveeLanLightCoordinator], LightEntity):
         elif not self.is_on:
             await api.turn_on()
 
-        # Update local state for on and brightness
-        self.coordinator.update_local_state(
-            on=True,
-            brightness=govee_brightness,
-        )
-
-        # Refresh state (will use local state if device doesn't respond)
-        await self.coordinator.async_refresh_immediate()
+        # Refresh state from device
+        await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the light off."""
         await self.coordinator.api.turn_off()
-        # Update local state
-        self.coordinator.update_local_state(on=False)
-        await self.coordinator.async_refresh_immediate()
+        await self.coordinator.async_request_refresh()
 
     @callback
     def _handle_coordinator_update(self) -> None:
